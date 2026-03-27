@@ -1,0 +1,7 @@
+{
+  "base_model": "your-base-model-here",
+  "adapter_path": "adapters",
+  "max_tokens": 2048,
+  "min_compress_chars": 300,
+  "min_savings_pct": 20
+}

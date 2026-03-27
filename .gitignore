@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+logs/
+config.json
+adapters/0000*_adapters.safetensors

@@ -1,0 +1,5 @@
+#!/bin/bash
+# Wren - prompt compression CLI
+WREN_DIR="/Users/brandon/wren"
+source "$WREN_DIR/.venv/bin/activate" 2>/dev/null
+exec python3 "$WREN_DIR/wren.py" "$@"
