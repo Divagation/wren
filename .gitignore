@@ -5,3 +5,16 @@ __pycache__/
 logs/
 config.json
 adapters/0000*_adapters.safetensors
+adapters/adapters_iter500.safetensors
+data/batch_*.json
+data/compressed_*.jsonl
+data/candidates.jsonl
+data/synth_*.jsonl
+data/fix_*.jsonl
+data/DATASET_INFO.txt
+data/FIX_NEGATIONS_README.md
+data/README_synth_guardrails.txt
+data/SYNTH_*.md
+data/synth_ml_README.md
+data/compressed.jsonl
+data/compression_report_*.txt
