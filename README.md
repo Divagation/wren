@@ -8,7 +8,7 @@
 
 wren is a tiny prompt compression model that makes LLM prompts shorter while preserving meaning. you pipe text in, compressed text comes out. it runs locally on Apple Silicon via [MLX](https://github.com/ml-explore/mlx).
 
-it averages 50-80% reduction on verbose prompts. short text passes through unchanged. it preserves the things that matter: numbers, flags, error codes, negations, conditional branches, step ordering. the stuff that breaks if you lose it.
+it averages 50-80% reduction on verbose prompts. short text passes through unchanged. it preserves the things that matter -- numbers, flags, error codes, negations, conditional branches, step ordering. the stuff that breaks if you lose it.
 
 <br>
 
@@ -59,14 +59,65 @@ the hard stuff (exact numbers, file paths, flags, negations) stays intact. the f
 
 <br>
 
+## what it preserves
+
+wren is trained to never drop things that change meaning:
+
+- **negations** -- "NEVER do X unless Y" stays "NEVER X unless Y", not "do X"
+- **values** -- numbers, status codes, paths, flags, error codes survive verbatim
+- **branches** -- if/else/when/otherwise logic stays complete
+- **step ordering** -- numbered procedures keep every step in order
+- **constraints** -- limits, thresholds, and requirements don't get softened
+
+<br>
+
+## config
+
+`config.json` controls the model and compression behavior:
+
+```json
+{
+  "base_model": "your-base-model-here",
+  "adapter_path": "adapters",
+  "max_tokens": 2048,
+  "min_compress_chars": 300,
+  "min_savings_pct": 20
+}
+```
+
+- `base_model` -- HuggingFace model ID (1.5B instruction-tuned models work best)
+- `adapter_path` -- path to the LoRA adapter directory
+- `max_tokens` -- max generation length
+- `min_compress_chars` -- skip compression for text shorter than this
+- `min_savings_pct` -- only use the compressed version if savings exceed this threshold
+
+<br>
+
 ## training
 
 wren is LoRA fine-tuned on 2,693 curated compression pairs across 20+ categories: system prompts, tool descriptions, CLI help, API docs, error messages, code comments, architecture docs, security/compliance, and edge cases like mixed code/prose and embedded JSON.
 
-it learns what to keep and what to drop. negations ("NEVER X unless Y") are sacred. step ordering stays complete. values are never approximated.
+training data is mined from real Claude Code conversations and compressed via API, then cleaned:
 
 ```bash
 source .venv/bin/activate
+
+# mine conversation history for candidate text blocks
+python3 generate_data.py mine
+
+# compress candidates via Claude API
+python3 generate_data.py compress
+
+# merge into train/valid splits (90/10)
+python3 generate_data.py merge
+
+# check dataset stats
+python3 generate_data.py stats
+```
+
+to retrain:
+
+```bash
 BASE=$(python3 -c "import json; print(json.load(open('config.json'))['base_model'])")
 python3 -m mlx_lm lora \
   --model "$BASE" \
@@ -80,14 +131,16 @@ python3 -m mlx_lm lora \
 
 ## eval
 
-31 test cases across 6 dimensions: ratio, value preservation, negation preservation, branch completeness, step ordering, and required content.
+31 test cases across 6 dimensions. run it to see how the model is doing:
 
 ```bash
-python3 eval.py           # summary
-python3 eval.py -v        # verbose
+python3 eval.py           # summary with letter grades
+python3 eval.py -v        # verbose -- show each test case
 python3 eval.py -c values # filter by category
 python3 eval.py -j        # JSON output
 ```
+
+dimensions scored: compression ratio, value preservation, negation preservation, branch completeness, step ordering, and required content retention.
 
 <br>
 
