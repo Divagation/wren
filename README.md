@@ -25,10 +25,9 @@ wren --file ./my-system-prompt.md
 
 | Input | Output | Reduction |
 |-------|--------|-----------|
-| "When implementing a REST API, make sure to use proper HTTP status codes for all responses. Use 200 for successful GET requests, 201 for successful POST requests..." | "REST API: 200=GET, 201=POST create, 204=DELETE, 400=bad client." | 74% |
-| "Configure nginx with worker_processes auto, worker_connections 4096, keepalive_timeout 65s..." | "nginx: worker_processes auto, worker_connections 4096, keepalive_timeout 65s..." | 78% |
-| "NEVER use dark themes. Always light. No exceptions." | "NEVER dark themes. Always light. No exceptions." | 49% |
-| "Fix the bug." | "Fix the bug." | 0% |
+| "When implementing a REST API, make sure to use proper HTTP status codes for all responses. Use 200 for successful GET requests, 201 for successful POST requests, 204 for DELETE, 400 for bad client requests." | "REST API: 200 GET, 201 POST, 204 DELETE, 400 BAD." | 79% |
+| "Before making any changes to the codebase, please read the relevant files first to understand the existing code structure. Do not create new files unless they are absolutely necessary. Generally prefer editing an existing file to creating a new one." | "Read existing files, do not create new unless necessary." | 78% |
+| "Database migration: 1) pg_dump --format=custom. 2) Maintenance mode. 3) Run db/migrations/0042_add_indexes.sql. 4) Verify with db/verify_schema.py. 5) If fails, pg_restore. 6) Remove maintenance after verify." | "1) pg_dump --format=custom. 2) Maintenance mode. 3) db/migrations/0042_add_indexes.sql. 4) db/verify_schema.py. 5) Restore if fails. 6) Remove after verify." | 40% |
 
 ## Install
 
