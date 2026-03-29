@@ -1,37 +1,20 @@
 <p align="center">
-  <img src="logo.png" alt="Wren" width="200">
+  <img src="logo.png" alt="wren" width="200">
 </p>
 
-<h1 align="center">Wren</h1>
+# wren
 
-<p align="center">A tiny prompt compression model that makes LLM prompts shorter while preserving meaning. Built on Apple Silicon with <a href="https://github.com/ml-explore/mlx">MLX</a>.</p>
+**say more with less.**
 
-Wren averages **50-80% reduction** on verbose prompts, preserves critical details like numbers, flags, error codes, negations, conditional branches, and step ordering. Short text passes through unchanged.
+wren is a tiny prompt compression model that makes LLM prompts shorter while preserving meaning. you pipe text in, compressed text comes out. it runs locally on Apple Silicon via [MLX](https://github.com/ml-explore/mlx).
 
-## Usage
+it averages 50-80% reduction on verbose prompts. short text passes through unchanged. it preserves the things that matter: numbers, flags, error codes, negations, conditional branches, step ordering. the stuff that breaks if you lose it.
 
-```bash
-# Pipe text
-echo "When implementing a REST API, make sure to use proper HTTP status codes..." | wren
+<br>
 
-# Inline
-wren "Your verbose prompt here"
+## get it
 
-# Compress a file
-wren --file ./my-system-prompt.md
-```
-
-## Examples
-
-| Input | Output | Reduction |
-|-------|--------|-----------|
-| "When implementing a REST API, make sure to use proper HTTP status codes for all responses. Use 200 for successful GET requests, 201 for successful POST requests, 204 for DELETE, 400 for bad client requests." | "REST API: 200 GET, 201 POST, 204 DELETE, 400 BAD." | 79% |
-| "Before making any changes to the codebase, please read the relevant files first to understand the existing code structure. Do not create new files unless they are absolutely necessary. Generally prefer editing an existing file to creating a new one." | "Read existing files, do not create new unless necessary." | 78% |
-| "Database migration: 1) pg_dump --format=custom. 2) Maintenance mode. 3) Run db/migrations/0042_add_indexes.sql. 4) Verify with db/verify_schema.py. 5) If fails, pg_restore. 6) Remove maintenance after verify." | "1) pg_dump --format=custom. 2) Maintenance mode. 3) db/migrations/0042_add_indexes.sql. 4) db/verify_schema.py. 5) Restore if fails. 6) Remove after verify." | 40% |
-
-## Install
-
-Requires Python 3.10+ and Apple Silicon (MLX).
+requires Python 3.10+ and Apple Silicon.
 
 ```bash
 git clone https://github.com/Divagation/wren.git
@@ -39,52 +22,48 @@ cd wren
 python3 -m venv .venv && source .venv/bin/activate
 pip install mlx-lm huggingface-hub
 
-# Configure the base model
+# configure the base model
 cp config.example.json config.json
-# Edit config.json and set "base_model" to a 1.5B instruction-tuned model
+# edit config.json and set "base_model" to a 1.5B instruction-tuned model
 
-# Add to PATH
+# add to PATH
 ln -sf $(pwd)/bin/wren ~/.local/bin/wren
 ```
 
-## Claude Code Hook
+<br>
 
-Wren can auto-compress long prompts before they hit the API. Add to `~/.claude/settings.json`:
+## usage
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/path/to/wren/hooks/wren-compress.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
+```bash
+# pipe text
+echo "When implementing a REST API, make sure to use proper HTTP status codes..." | wren
+
+# inline
+wren "Your verbose prompt here"
+
+# compress a file
+wren --file ./my-system-prompt.md
 ```
 
-Only prompts over 300 characters with >20% compression savings are rewritten.
+<br>
 
-## Training
+## what it does
 
-Wren is fine-tuned with LoRA on 2,693 curated prompt compression pairs across 20+ categories:
+| input | output | saved |
+|-------|--------|-------|
+| "When implementing a REST API, make sure to use proper HTTP status codes for all responses. Use 200 for successful GET requests, 201 for successful POST requests, 204 for DELETE, 400 for bad client requests." | "REST API: 200 GET, 201 POST, 204 DELETE, 400 BAD." | 79% |
+| "Before making any changes to the codebase, please read the relevant files first to understand the existing code structure. Do not create new files unless they are absolutely necessary. Generally prefer editing an existing file to creating a new one." | "Read existing files, do not create new unless necessary." | 78% |
+| "Database migration: 1) pg_dump --format=custom. 2) Maintenance mode. 3) Run db/migrations/0042_add_indexes.sql. 4) Verify with db/verify_schema.py. 5) If fails, pg_restore. 6) Remove maintenance after verify." | "1) pg_dump --format=custom. 2) Maintenance mode. 3) db/migrations/0042_add_indexes.sql. 4) db/verify_schema.py. 5) Restore if fails. 6) Remove after verify." | 40% |
 
-- System prompts, tool descriptions, CLI help text
-- API docs, config instructions, error messages
-- Code comments, git descriptions, architecture docs
-- Negation/exception preservation ("NEVER X unless Y")
-- Value preservation (numbers, flags, codes, paths)
-- Conditional branch preservation (all branches kept)
-- Step ordering preservation (procedures stay complete)
-- Security/compliance, legal, email/comms, ML/AI docs
-- Edge cases (short text, mixed code/prose, embedded JSON)
+the hard stuff (exact numbers, file paths, flags, negations) stays intact. the fluff ("please make sure to", "it is important that") disappears.
 
-To retrain:
+<br>
+
+## training
+
+wren is LoRA fine-tuned on 2,693 curated compression pairs across 20+ categories: system prompts, tool descriptions, CLI help, API docs, error messages, code comments, architecture docs, security/compliance, and edge cases like mixed code/prose and embedded JSON.
+
+it learns what to keep and what to drop. negations ("NEVER X unless Y") are sacred. step ordering stays complete. values are never approximated.
 
 ```bash
 source .venv/bin/activate
@@ -97,23 +76,37 @@ python3 -m mlx_lm lora \
   --steps-per-eval 100 --save-every 100
 ```
 
-## Eval
+<br>
 
-Run the eval harness to score compression quality across 31 test cases:
+## eval
+
+31 test cases across 6 dimensions: ratio, value preservation, negation preservation, branch completeness, step ordering, and required content.
 
 ```bash
 python3 eval.py           # summary
-python3 eval.py -v        # verbose (show each test)
+python3 eval.py -v        # verbose
 python3 eval.py -c values # filter by category
 python3 eval.py -j        # JSON output
 ```
 
-Scores 6 dimensions: ratio, value preservation, negation preservation, branch completeness, step ordering, and required content.
+<br>
 
-## Architecture
+## under the hood
 
-- **Base**: 1.5B parameter instruction-tuned model
-- **Fine-tuning**: LoRA (8 layers, 2.6M trainable params / 0.17%)
-- **Training data**: 2,693 pairs (cleaned, constraint-preserving)
-- **Inference**: MLX native on Apple Silicon
-- **Latency**: ~2-5s per compression on M-series Mac
+- **base**: 1.5B parameter instruction-tuned model
+- **fine-tuning**: LoRA (8 layers, 2.6M trainable params / 0.17%)
+- **training data**: 2,693 pairs (cleaned, constraint-preserving)
+- **inference**: MLX native on Apple Silicon
+- **latency**: ~2-5s per compression on M-series
+
+<br>
+
+## why "wren"
+
+smallest bird, loudest song. that's the idea.
+
+<br>
+
+<p align="center">
+  <sub>made by <a href="https://github.com/Divagation">divagation</a></sub>
+</p>
