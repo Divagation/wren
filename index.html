@@ -1,940 +1,1086 @@
+<!--
+  this page was compressed.
+  it used to be 3x longer.
+  wren helped.
+-->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wren | Compression for Agent Context</title>
-  <meta name="description" content="Wren compresses prompts and tool output for Claude Code and local agent workflows without dropping the details that matter.">
+  <title>Wren</title>
+  <meta name="description" content="Prompt compression for Claude Code. Local MLX inference on Apple Silicon. Say more with less.">
+  <meta property="og:title" content="Wren">
+  <meta property="og:description" content="Tiny compression model that makes agent context go further. 60-80% savings, local inference, zero cloud.">
+  <meta property="og:image" content="logo.png">
+  <link rel="icon" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      color-scheme: light;
-      --bg: oklch(0.972 0.008 95);
-      --panel: oklch(0.988 0.004 95);
-      --ink: oklch(0.182 0.02 235);
-      --muted: oklch(0.53 0.015 235);
-      --line: oklch(0.88 0.015 200);
-      --accent: oklch(0.52 0.11 195);
-      --accent-soft: oklch(0.92 0.03 195);
-      --accent-warm: oklch(0.67 0.07 75);
-      --shadow: 0 24px 80px rgba(11, 20, 34, 0.08);
-      --display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
-      --sans: "SF Pro Display", "Avenir Next", "Neue Haas Grotesk Text Pro", "Helvetica Neue", sans-serif;
-      --mono: "SF Mono", "IBM Plex Mono", "Menlo", monospace;
+      --bg: oklch(0.975 0.005 80);
+      --ink: oklch(0.22 0.025 55);
+      --muted: oklch(0.58 0.02 65);
+      --accent: oklch(0.60 0.10 50);
+      --accent-soft: oklch(0.90 0.03 55);
+      --border: oklch(0.88 0.01 75);
+      --code-bg: oklch(0.94 0.008 75);
+      --pixel: 'Silkscreen', cursive;
+      --body: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+      --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
 
     body {
-      margin: 0;
-      font-family: var(--sans);
-      background:
-        radial-gradient(circle at top left, rgba(92, 190, 194, 0.12), transparent 28%),
-        radial-gradient(circle at 88% 12%, rgba(197, 179, 114, 0.14), transparent 18%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 247, 243, 0.98));
+      font-family: var(--body);
+      background: var(--bg);
       color: var(--ink);
       min-height: 100vh;
+      overflow-x: hidden;
     }
 
     body::before {
-      content: "";
+      content: '';
       position: fixed;
       inset: 0;
       pointer-events: none;
+      opacity: 0.35;
       background-image:
-        linear-gradient(to right, rgba(16, 39, 57, 0.045) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(16, 39, 57, 0.045) 1px, transparent 1px);
-      background-size: 64px 64px;
-      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.75), transparent 88%);
+        linear-gradient(to right, var(--border) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+      background-size: 16px 16px;
+      z-index: 0;
     }
 
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
+    a { color: inherit; text-decoration: none; }
 
-    img {
-      max-width: 100%;
-      display: block;
-    }
-
-    .shell {
-      width: min(1180px, calc(100% - 40px));
-      margin: 0 auto;
-    }
-
-    .topbar {
-      padding: 20px 0 8px;
+    /* ─── NAV ─── */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      padding: 18px 32px;
+      background: oklch(0.975 0.005 80 / 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      font-family: var(--pixel);
       font-size: 13px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .nav-links { display: flex; gap: 28px; }
+
+    .nav-links a {
+      font-family: var(--pixel);
+      font-size: 10px; /* P-minor: was 9px, below a11y minimum */
       color: var(--muted);
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 600;
-    }
-
-    .brand-mark {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      border: 1px solid rgba(16, 39, 57, 0.1);
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(214, 235, 235, 0.85));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
-      padding: 4px;
-    }
-
-    nav {
-      display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
-    }
-
-    nav a {
+      letter-spacing: 1px;
       position: relative;
-      padding-bottom: 2px;
+      transition: color 200ms var(--ease-out-quart);
     }
 
-    nav a::after {
-      content: "";
+    .nav-links a::after {
+      content: '';
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 1px;
-      background: rgba(25, 96, 116, 0.35);
+      bottom: -4px;
+      left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
       transform: scaleX(0);
       transform-origin: left;
-      transition: transform 180ms ease;
+      transition: transform 250ms steps(5);
     }
 
-    nav a:hover::after,
-    nav a:focus-visible::after {
-      transform: scaleX(1);
-    }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-links a:hover::after { transform: scaleX(1); }
 
+    /* ─── HERO ─── */
     .hero {
-      padding: 54px 0 58px;
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-      gap: clamp(28px, 5vw, 84px);
-      align-items: end;
-    }
-
-    .eyebrow {
-      display: inline-flex;
+      min-height: 100vh;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 24px 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .bird-scene {
+      position: relative;
+      margin-bottom: 52px;
+      display: inline-block;
+      cursor: pointer;
+    }
+
+    .bird-float { animation: float 3s var(--ease-out-quart) infinite alternate; }
+    .bird-tilt {
+      animation: tilt 4s var(--ease-out-quart) infinite;
+      transform-origin: center 70%;
+    }
+
+    .bird {
+      width: 280px;
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      filter: drop-shadow(0 28px 52px oklch(0.30 0.05 55 / 0.18));
+      transition: filter 300ms var(--ease-out-quart);
+    }
+
+    .bird-shadow {
+      position: absolute;
+      bottom: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140px;
+      height: 16px;
+      background: radial-gradient(ellipse, oklch(0.30 0.05 55 / 0.10) 0%, transparent 70%);
+      animation: shadow-bob 3s var(--ease-out-quart) infinite alternate;
+    }
+
+    @keyframes float {
+      from { transform: translateY(0); }
+      to { transform: translateY(-12px); }
+    }
+
+    @keyframes shadow-bob {
+      from { transform: translateX(-50%) scaleX(1); opacity: 1; }
+      to { transform: translateX(-50%) scaleX(0.78); opacity: 0.55; }
+    }
+
+    @keyframes tilt {
+      0%, 55%, 90%, 100% { transform: rotate(0deg); }
+      65% { transform: rotate(-5deg); }
+      78% { transform: rotate(3deg); }
+    }
+
+    .note {
+      position: absolute;
+      font-family: var(--pixel);
+      color: var(--accent);
+      opacity: 0;
+      animation: sing 4s var(--ease-out-expo) infinite;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    @keyframes sing {
+      0%, 55% { opacity: 0; transform: translate(0, 0) scale(0.15); }
+      62% { opacity: 1; transform: translate(6px, -20px) scale(1); }
+      76% { opacity: 0.55; transform: translate(18px, -48px) scale(0.85); }
+      90% { opacity: 0; transform: translate(28px, -76px) scale(0.55); }
+      100% { opacity: 0; }
+    }
+
+    .n1 { right: 8%; top: 10%; font-size: 24px; animation-delay: 0s; }
+    .n2 { right: 0%; top: 0%; font-size: 17px; animation-delay: 0.22s; }
+    .n3 { right: -4%; top: 20%; font-size: 19px; animation-delay: 0.48s; }
+
+    .bird-scene:hover .bird-tilt { animation-duration: 1.4s; }
+    .bird-scene:hover .note { animation-duration: 1.4s; }
+    .bird-scene:hover .bird { filter: drop-shadow(0 28px 52px oklch(0.30 0.05 55 / 0.26)); }
+
+    .burst-note {
+      position: absolute;
+      top: 35%;
+      left: 50%;
+      font-family: var(--pixel);
+      color: var(--accent);
+      pointer-events: none;
+      user-select: none;
+      opacity: 0;
+      z-index: 5;
+      animation: burst 650ms var(--ease-out-expo) forwards;
+    }
+
+    @keyframes burst {
+      0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(0.4); }
+      100% { opacity: 0; transform: translate(var(--bx), var(--by)) rotate(var(--br)) scale(1); }
+    }
+
+    /* hero entrance cascade */
+    .hero .bird-scene { opacity: 0; animation: enter-drop 800ms var(--ease-out-expo) 100ms forwards; }
+    .hero .tagline { opacity: 0; animation: enter-up 700ms var(--ease-out-expo) 700ms forwards; }
+    .hero .hero-stat { opacity: 0; animation: enter-up 700ms var(--ease-out-expo) 850ms forwards; }
+    .hero .about-text { opacity: 0; animation: enter-up 700ms var(--ease-out-expo) 950ms forwards; }
+    .hero .actions { opacity: 0; animation: enter-up 700ms var(--ease-out-expo) 1050ms forwards; }
+
+    @keyframes enter-drop {
+      from { opacity: 0; transform: translateY(-24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes enter-up {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* per-letter pixel reveal */
+    .hero h1 {
+      font-family: var(--pixel);
+      font-size: clamp(56px, 10vw, 96px);
+      font-weight: 400;
+      letter-spacing: 12px;
+      margin-bottom: 12px;
+    }
+
+    .hero h1 span {
+      display: inline-block;
+      opacity: 0;
+      animation: letter-in 500ms var(--ease-out-expo) forwards;
+      animation-delay: calc(400ms + var(--i, 0) * 130ms);
+      cursor: default;
+      transition: color 150ms var(--ease-out-quart);
+    }
+
+    @keyframes letter-in {
+      from { opacity: 0; transform: translateY(10px) scale(0.85); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .hero h1 span:hover {
+      color: var(--accent);
+      animation: letter-hop 350ms var(--ease-out-expo);
+    }
+
+    @keyframes letter-hop {
+      0% { transform: translateY(0) rotate(0deg); }
+      35% { transform: translateY(-8px) rotate(-5deg); }
+      65% { transform: translateY(2px) rotate(2deg); }
+      100% { transform: translateY(0) rotate(0deg); }
+    }
+
+    .tagline {
+      font-family: var(--pixel);
+      font-size: clamp(10px, 1.6vw, 14px);
       color: var(--muted);
-      margin-bottom: 22px;
+      letter-spacing: 5px;
+      margin-bottom: 28px;
     }
 
-    .eyebrow::before {
-      content: "";
-      width: 48px;
-      height: 1px;
-      background: rgba(25, 96, 116, 0.38);
+    /* P2 fix: stat line pulled out of body text, more prominent */
+    .hero-stat {
+      font-family: var(--pixel);
+      font-size: clamp(12px, 2vw, 16px);
+      letter-spacing: 3px;
+      color: var(--muted);
+      margin-bottom: 20px;
     }
 
-    h1,
-    h2 {
-      margin: 0;
-      font-family: var(--display);
-      font-weight: 500;
-      letter-spacing: -0.04em;
-      line-height: 0.95;
+    .hero-stat .num {
+      color: var(--accent);
+      font-size: 1.2em;
     }
 
-    h1 {
-      font-size: clamp(4rem, 10vw, 7.8rem);
-      max-width: 9ch;
-    }
-
-    .hero-copy {
-      margin-top: 24px;
-      max-width: 58ch;
-      font-size: clamp(1.05rem, 1.6vw, 1.26rem);
-      line-height: 1.6;
-      color: color-mix(in oklch, var(--ink) 78%, white);
-    }
-
-    .hero-copy strong {
-      font-weight: 600;
-      color: var(--ink);
+    /* P2 fix: body text bumped to weight 400 */
+    .about-text {
+      font-size: clamp(15px, 2vw, 18px);
+      line-height: 1.75;
+      color: var(--muted);
+      max-width: 38ch;
+      margin-bottom: 40px;
+      font-weight: 400;
     }
 
     .actions {
       display: flex;
-      gap: 14px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-top: 30px;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
       justify-content: center;
-      min-height: 46px;
-      padding: 0 18px;
-      border-radius: 999px;
-      border: 1px solid rgba(24, 83, 101, 0.16);
-      background: rgba(255, 255, 255, 0.7);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-      font-size: 14px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
     }
 
-    .button:hover,
-    .button:focus-visible {
-      transform: translateY(-1px);
-      border-color: rgba(24, 83, 101, 0.32);
-    }
-
-    .button.primary {
-      background: linear-gradient(135deg, rgba(236, 247, 247, 0.94), rgba(255, 255, 255, 0.9));
-      color: var(--ink);
-    }
-
-    .hero-side {
+    .btn {
+      font-family: var(--pixel);
+      font-size: 9px;
+      letter-spacing: 2px;
+      padding: 14px 28px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: border-color 200ms var(--ease-out-quart),
+                  color 200ms var(--ease-out-quart),
+                  transform 200ms var(--ease-out-quart),
+                  background 200ms var(--ease-out-quart);
       position: relative;
-      min-height: 520px;
-      padding: 28px;
-      border: 1px solid rgba(16, 39, 57, 0.09);
-      background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 248, 247, 0.8));
-      box-shadow: var(--shadow);
       overflow: hidden;
     }
 
-    .hero-side::before {
-      content: "";
+    .btn:hover {
+      border-color: var(--ink);
+      color: var(--ink);
+      transform: translateY(-2px);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.97);
+      transition-duration: 80ms;
+    }
+
+    .btn.primary {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
+    }
+
+    .btn.primary:hover {
+      background: oklch(0.28 0.025 55);
+      transform: translateY(-2px);
+    }
+
+    .btn.primary:active {
+      transform: translateY(1px) scale(0.97);
+      transition-duration: 80ms;
+    }
+
+    /* P-minor fix: scroll hint centering */
+    .scroll-hint {
       position: absolute;
-      inset: 18px;
-      border: 1px solid rgba(25, 96, 116, 0.09);
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      animation: hint-enter 700ms var(--ease-out-expo) 1.4s forwards,
+                 hint-bob 2.5s var(--ease-out-quart) 2.2s infinite;
+    }
+
+    .scroll-hint svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--muted);
+      stroke-width: 1.5;
+      fill: none;
+    }
+
+    @keyframes hint-enter {
+      from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    @keyframes hint-bob {
+      0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.4; }
+      50% { transform: translateX(-50%) translateY(6px); opacity: 0.15; }
+    }
+
+    /* ─── SHARED ─── */
+    section { position: relative; z-index: 1; }
+
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .section-label {
+      font-family: var(--pixel);
+      font-size: clamp(16px, 2.5vw, 22px);
+      font-weight: 400;
+      letter-spacing: 4px;
+      margin-bottom: 32px;
+    }
+
+    .dither {
+      height: 6px;
+      image-rendering: pixelated;
+      transform: scaleX(0);
+      transition: transform 600ms var(--ease-out-expo);
+    }
+
+    .dither.visible { transform: scaleX(1); }
+
+    .dither-check {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='2' height='2' fill='%23d4cdc2'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23d4cdc2'/%3E%3C/svg%3E");
+      background-size: 4px 4px;
+      mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+    }
+
+    .dither-diag {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cpath d='M0 6L6 0' stroke='%23d4cdc2' stroke-width='1.2'/%3E%3C/svg%3E");
+      background-size: 6px 6px;
+      mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    }
+
+    .dither-dot {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect x='3' y='3' width='2' height='2' fill='%23d4cdc2'/%3E%3C/svg%3E");
+      background-size: 8px 8px;
+      mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    }
+
+    /* ─── COMPRESSION DEMO ─── */
+    .demo { padding: 72px 0; }
+
+    .demo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 28px;
+    }
+
+    .demo-counter {
+      font-family: var(--pixel);
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .demo-counter .count {
+      display: inline-block;
+      font-size: 18px;
+      color: var(--accent);
+      transition: color 300ms;
+    }
+
+    .demo-counter .count.done {
+      animation: counter-pop 400ms var(--ease-out-expo);
+    }
+
+    @keyframes counter-pop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    .demo-box {
+      position: relative;
+      display: grid;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .demo-before, .demo-after {
+      grid-area: 1 / 1;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.85;
+      padding: 28px 32px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .demo-before { background: var(--code-bg); }
+    .demo-before .filler {
+      color: var(--muted);
+      transition: opacity 600ms var(--ease-out-quart);
+    }
+    .demo-before .keep { color: var(--ink); }
+
+    .demo-after {
+      opacity: 0;
+      background: linear-gradient(180deg, oklch(0.93 0.025 55 / 0.25), var(--code-bg));
+      transition: opacity 500ms var(--ease-out-quart);
+    }
+
+    .demo-scanline {
+      position: absolute;
+      left: 0; right: 0;
+      top: 0;
+      height: 3px;
+      background: var(--accent);
+      box-shadow: 0 0 16px var(--accent), 0 0 4px var(--accent);
+      z-index: 2;
+      opacity: 0;
+    }
+
+    .particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: var(--accent);
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0;
+      animation: particle-drift 700ms var(--ease-out-expo) forwards;
+    }
+
+    .particle:nth-child(odd) { background: var(--muted); width: 2px; height: 2px; }
+
+    @keyframes particle-drift {
+      0% { opacity: 0.9; transform: translate(0, 0); }
+      100% { opacity: 0; transform: translate(var(--px, 10px), var(--py, -30px)); }
+    }
+
+    .demo-bird {
+      position: absolute;
+      bottom: 10px;
+      left: 0;
+      width: 16px;
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      pointer-events: none;
+      z-index: 4;
+      opacity: 0;
+    }
+
+    .demo-box.compressed .demo-bird {
+      animation: fly-across 1.4s var(--ease-out-quint) 250ms forwards;
+    }
+
+    @keyframes fly-across {
+      0%  { opacity: 0;   transform: translateX(-20px) translateY(0) scaleX(-1); }
+      12% { opacity: 0.5; }
+      30% { transform: translateX(calc(var(--box-w, 700px) * 0.3)) translateY(-14px) scaleX(-1); }
+      55% { transform: translateX(calc(var(--box-w, 700px) * 0.55)) translateY(-8px) scaleX(-1); }
+      80% { opacity: 0.5; transform: translateX(calc(var(--box-w, 700px) * 0.8)) translateY(-12px) scaleX(-1); }
+      100% { opacity: 0; transform: translateX(calc(var(--box-w, 700px) + 20px)) translateY(0) scaleX(-1); }
+    }
+
+    .demo-box.compressing .demo-scanline {
+      opacity: 1;
+      animation: scan 1.8s var(--ease-out-quart) forwards;
+    }
+
+    .demo-box.compressing .demo-before .filler { opacity: 0.15; }
+
+    .demo-box.compressed .demo-scanline { opacity: 0; transition: opacity 300ms; }
+    .demo-box.compressed .demo-before { opacity: 0; transition: opacity 400ms var(--ease-out-quart); }
+    .demo-box.compressed .demo-after { opacity: 1; transition: opacity 500ms var(--ease-out-quart) 200ms; }
+
+    .demo-box.compressed { cursor: pointer; }
+
+    .demo-box.compressed::before {
+      content: 'click to replay';
+      position: absolute;
+      bottom: 10px;
+      right: 14px;
+      font-family: var(--pixel);
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      opacity: 0;
+      z-index: 5;
+      transition: opacity 300ms var(--ease-out-quart);
+    }
+
+    .demo-box.compressed:hover::before { opacity: 0.5; }
+
+    @keyframes scan {
+      from { transform: translateY(0); }
+      to { transform: translateY(var(--box-h, 200px)); }
+    }
+
+    .demo-tag {
+      margin-top: 16px;
+      text-align: right;
+    }
+
+    .demo-tag span {
+      font-family: var(--pixel);
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 500ms var(--ease-out-quart);
+    }
+
+    .demo-box.compressed + .demo-tag span { opacity: 1; }
+
+    /* ─── PRESERVES ─── P3 fix: grid with examples, adds substance */
+    .preserves { padding: 64px 0; }
+
+    .preserve-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px 20px;
+    }
+
+    .pv {
+      padding-left: 12px;
+      border-left: 2px solid var(--border);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: border-color 200ms var(--ease-out-quart);
+    }
+
+    .pv:hover { border-left-color: var(--accent); }
+
+    .preserves.visible .pv {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 500ms var(--ease-out-expo),
+                  transform 500ms var(--ease-out-expo),
+                  border-color 200ms var(--ease-out-quart);
+      transition-delay: calc(var(--i, 0) * 80ms), calc(var(--i, 0) * 80ms), 0ms;
+    }
+
+    .pv-label {
+      display: block;
+      font-family: var(--pixel);
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .pv-example {
+      display: block;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ─── INSTALL ─── */
+    .install { padding: 64px 0 96px; }
+
+    .install-step {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0;
+      margin-bottom: 2px;
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    .install.visible .install-step {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 500ms var(--ease-out-expo), transform 500ms var(--ease-out-expo);
+      transition-delay: calc(var(--i, 0) * 100ms);
+    }
+
+    .install-label {
+      font-family: var(--pixel);
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--muted);
+      padding: 18px 16px 18px 0;
+      border-right: 1px solid var(--border);
+      text-align: right;
+    }
+
+    .install-cmd {
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 18px 20px;
+      background: var(--code-bg);
+      border-bottom: 1px solid oklch(0.92 0.005 75);
+      word-break: break-all;
+      cursor: pointer;
+      position: relative;
+      transition: background 150ms var(--ease-out-quart);
+    }
+
+    .install-step:last-child .install-cmd { border-bottom: none; }
+    .install-cmd:hover { background: oklch(0.92 0.012 75); }
+
+    /* P2 fix: visible copy icon on hover */
+    .install-cmd .copy-icon {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+      transition: opacity 150ms var(--ease-out-quart);
+      color: var(--muted);
+    }
+
+    .install-cmd:hover .copy-icon { opacity: 0.5; }
+
+    .install-cmd::after {
+      content: 'copied';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%) translateX(4px);
+      font-family: var(--pixel);
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 150ms, transform 150ms var(--ease-out-expo);
       pointer-events: none;
     }
 
-    .hero-meta {
+    .install-cmd.copied .copy-icon { opacity: 0 !important; }
+
+    .install-cmd.copied::after {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    /* P3 fix: MCP annotation */
+    .install-note {
+      font-family: var(--body);
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 20px 0;
+      margin-left: 72px;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      padding: 28px 0 40px;
       display: flex;
       justify-content: space-between;
-      gap: 12px;
       align-items: center;
-      font-size: 12px;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .hero-stat {
-      margin-top: 70px;
-      display: grid;
-      gap: 16px;
-    }
-
-    .hero-stat strong {
-      font-family: var(--display);
-      font-size: clamp(3rem, 7vw, 5rem);
-      letter-spacing: -0.06em;
-      line-height: 0.86;
-      max-width: 5ch;
-    }
-
-    .hero-stat p {
-      margin: 0;
-      max-width: 24ch;
-      color: color-mix(in oklch, var(--ink) 72%, white);
-      line-height: 1.55;
-      font-size: 1rem;
-    }
-
-    .signal-cluster {
-      position: absolute;
-      right: 28px;
-      bottom: 28px;
-      left: 28px;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .signal {
-      padding: 12px 14px;
-      border-top: 1px solid rgba(16, 39, 57, 0.12);
-      font-size: 13px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: color-mix(in oklch, var(--ink) 72%, white);
-    }
-
-    .signal span {
-      display: block;
-      margin-top: 6px;
-      font-size: 15px;
-      letter-spacing: normal;
-      text-transform: none;
-      color: var(--ink);
-    }
-
-    .metrics {
-      padding: 22px 0 10px;
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .metric {
-      padding-top: 14px;
-      border-top: 1px solid rgba(16, 39, 57, 0.1);
-    }
-
-    .metric strong {
-      display: block;
-      font-family: var(--display);
-      font-size: clamp(2rem, 4vw, 3.2rem);
-      letter-spacing: -0.05em;
-      line-height: 0.9;
-      margin-bottom: 10px;
-    }
-
-    .metric p {
-      margin: 0;
-      font-size: 14px;
-      line-height: 1.55;
-      color: var(--muted);
-      max-width: 18ch;
-    }
-
-    section {
-      padding: 86px 0;
       position: relative;
-    }
-
-    .section-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.8fr);
-      gap: 24px;
-      align-items: end;
-      margin-bottom: 30px;
-    }
-
-    h2 {
-      font-size: clamp(2.7rem, 6vw, 5rem);
-      max-width: 9ch;
-    }
-
-    .section-head p {
-      margin: 0;
-      font-size: 1rem;
-      line-height: 1.65;
-      color: color-mix(in oklch, var(--ink) 74%, white);
-      max-width: 34ch;
-    }
-
-    .proof-board {
-      border: 1px solid rgba(16, 39, 57, 0.1);
-      background: rgba(255, 255, 255, 0.76);
-      box-shadow: var(--shadow);
+      z-index: 1;
       overflow: hidden;
     }
 
-    .proof-switch {
-      display: flex;
-      gap: 10px;
-      padding: 16px;
-      border-bottom: 1px solid rgba(16, 39, 57, 0.08);
-      background: rgba(248, 250, 249, 0.84);
-    }
-
-    .proof-switch button {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      border-radius: 999px;
-      padding: 10px 14px;
-      font: inherit;
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      cursor: pointer;
-      transition: background 180ms ease, color 180ms ease;
-    }
-
-    .proof-switch button[aria-selected="true"] {
-      background: rgba(24, 83, 101, 0.08);
-      color: var(--ink);
-    }
-
-    .proof-panel {
-      display: none;
-      padding: 26px;
-    }
-
-    .proof-panel.active {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 20px;
-      animation: rise 320ms ease;
-    }
-
-    .sample {
-      display: grid;
-      gap: 12px;
-    }
-
-    .sample-label {
-      font-size: 12px;
-      letter-spacing: 0.11em;
-      text-transform: uppercase;
+    footer span {
+      font-family: var(--pixel);
+      font-size: 9px;
+      letter-spacing: 2px;
       color: var(--muted);
     }
 
-    .sample pre {
-      margin: 0;
-      padding: 20px;
-      min-height: 272px;
-      overflow: auto;
-      background: color-mix(in oklch, var(--panel) 82%, white);
-      border: 1px solid rgba(16, 39, 57, 0.09);
-      font-family: var(--mono);
-      font-size: 13px;
-      line-height: 1.7;
-      white-space: pre-wrap;
+    .footer-bird {
+      position: absolute;
+      bottom: 12px;
+      left: -24px;
+      width: 16px;
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      opacity: 0.12;
+      animation: walk 28s linear infinite;
+      transition: opacity 400ms var(--ease-out-quart);
     }
 
-    .sample.after pre {
-      background: linear-gradient(180deg, rgba(240, 250, 249, 0.88), rgba(255, 255, 255, 0.88));
+    footer:hover .footer-bird { opacity: 0.4; }
+
+    @keyframes walk {
+      from { transform: translateX(-24px) scaleX(-1); }
+      to { transform: translateX(calc(100vw + 24px)) scaleX(-1); }
     }
 
-    .proof-meta {
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 16px 26px 24px;
-      border-top: 1px solid rgba(16, 39, 57, 0.08);
-      flex-wrap: wrap;
-    }
-
-    .proof-meta div {
-      min-width: 150px;
-    }
-
-    .proof-meta strong {
-      display: block;
-      font-family: var(--display);
-      font-size: 2rem;
-      letter-spacing: -0.05em;
-    }
-
-    .proof-meta span {
-      font-size: 13px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .grid-two {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 26px;
-    }
-
-    .preserve-list,
-    .install-panel {
-      border-top: 1px solid rgba(16, 39, 57, 0.1);
-      padding-top: 18px;
-    }
-
-    .preserve-item {
-      display: grid;
-      grid-template-columns: 160px minmax(0, 1fr);
-      gap: 20px;
-      padding: 16px 0;
-      border-bottom: 1px solid rgba(16, 39, 57, 0.08);
-    }
-
-    .preserve-item strong {
-      font-size: 12px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      align-self: start;
-    }
-
-    .preserve-item p {
-      margin: 0;
-      line-height: 1.65;
-      color: color-mix(in oklch, var(--ink) 75%, white);
-    }
-
-    .install-panel {
-      display: grid;
-      gap: 16px;
-    }
-
-    .install-block {
-      padding: 20px 22px;
-      border: 1px solid rgba(16, 39, 57, 0.09);
-      background: rgba(255, 255, 255, 0.74);
-    }
-
-    .install-block h3,
-    .install-block p {
-      margin: 0;
-    }
-
-    .install-block h3 {
-      font-size: 13px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-
-    .install-block p {
-      font-size: 15px;
-      line-height: 1.6;
-      color: color-mix(in oklch, var(--ink) 74%, white);
-    }
-
-    code,
-    pre code {
-      font-family: var(--mono);
-    }
-
-    .command {
-      margin-top: 12px;
-      padding: 14px 16px;
-      background: rgba(243, 247, 246, 0.95);
-      border: 1px solid rgba(16, 39, 57, 0.08);
-      font-size: 13px;
-      overflow-x: auto;
-    }
-
-    .research {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-    }
-
-    .research-card {
-      min-height: 220px;
-      padding: 22px;
-      border: 1px solid rgba(16, 39, 57, 0.1);
-      background: rgba(255, 255, 255, 0.72);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-    }
-
-    .research-card span {
-      display: inline-block;
-      font-size: 12px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 26px;
-    }
-
-    .research-card strong {
-      display: block;
-      font-family: var(--display);
-      font-size: clamp(2rem, 4vw, 3rem);
-      line-height: 0.95;
-      letter-spacing: -0.05em;
-      margin-bottom: 16px;
-    }
-
-    .research-card p {
-      margin: 0;
-      line-height: 1.65;
-      color: color-mix(in oklch, var(--ink) 74%, white);
-    }
-
-    footer {
-      padding: 34px 0 46px;
-      color: var(--muted);
-      font-size: 13px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      border-top: 1px solid rgba(16, 39, 57, 0.08);
-    }
-
-    .fade {
+    /* ─── SCROLL REVEAL ─── */
+    .reveal {
       opacity: 0;
       transform: translateY(18px);
-      animation: rise 700ms cubic-bezier(.19, 1, .22, 1) forwards;
+      transition: opacity 600ms var(--ease-out-expo), transform 600ms var(--ease-out-expo);
     }
 
-    .fade:nth-child(2) { animation-delay: 80ms; }
-    .fade:nth-child(3) { animation-delay: 160ms; }
-    .fade:nth-child(4) { animation-delay: 240ms; }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
-    @keyframes rise {
-      to {
-        opacity: 1;
-        transform: translateY(0);
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .nav { padding: 14px 18px; }
+      .nav-links { gap: 18px; }
+      .bird { width: 200px; }
+      .hero h1 { letter-spacing: 7px; }
+      .demo-before, .demo-after { padding: 20px; font-size: 12px; }
+      .preserve-grid { grid-template-columns: repeat(2, 1fr); }
+      .install-step { grid-template-columns: 1fr; }
+      .install-label {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        padding: 12px 0 8px;
       }
+      .install-cmd { padding: 12px 0 16px; }
+      .install-note { margin-left: 0; padding-left: 0; }
+      footer { flex-direction: column; gap: 8px; }
+    }
+
+    @media (max-width: 400px) {
+      .bird { width: 160px; }
+      .hero { padding-top: 72px; }
+      .preserve-grid { grid-template-columns: 1fr; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      html {
-        scroll-behavior: auto;
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
       }
-
-      .fade,
-      .proof-panel.active {
-        animation: none;
-      }
-
-      .button,
-      nav a::after,
-      .proof-switch button {
-        transition: none;
-      }
-    }
-
-    @media (max-width: 980px) {
-      .hero,
-      .section-head,
-      .grid-two,
-      .proof-panel.active,
-      .research,
-      .metrics {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-side {
-        min-height: 0;
-      }
-
-      .signal-cluster {
-        position: static;
-        margin-top: 40px;
-      }
-
-      h1 {
-        max-width: 12ch;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .shell {
-        width: min(100% - 28px, 1180px);
-      }
-
-      .topbar {
-        padding-top: 16px;
-      }
-
-      .hero {
-        padding-top: 32px;
-      }
-
-      .hero-side,
-      .proof-panel,
-      .proof-meta,
-      .install-block,
-      .research-card {
-        padding-left: 18px;
-        padding-right: 18px;
-      }
-
-      .signal-cluster {
-        grid-template-columns: 1fr;
-      }
-
-      .preserve-item {
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
+      .hero .bird-scene, .hero h1 span, .hero .tagline,
+      .hero .hero-stat, .hero .about-text, .hero .actions,
+      .scroll-hint, .reveal, .dither,
+      .pv, .install-step { opacity: 1; transform: none; }
+      .note, .footer-bird, .particle, .burst-note, .demo-bird { display: none; }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar fade">
-      <a class="brand" href="#">
-        <img class="brand-mark" src="logo.png" alt="Wren logo">
-        <span>Wren</span>
-      </a>
-      <nav>
-        <a href="#proof">Proof</a>
-        <a href="#preserve">Preservation</a>
-        <a href="#install">Install</a>
-        <a href="https://github.com/Divagation/wren">GitHub</a>
-      </nav>
-    </header>
 
-    <main>
-      <section class="hero">
-        <div class="fade">
-          <div class="eyebrow">Apple Silicon · MLX · local inference</div>
-          <h1>More room for agent context.</h1>
-          <p class="hero-copy">
-            Wren compresses prompts and tool output for <strong>Claude Code</strong> and local agent workflows.
-            It removes the polite filler, keeps the fragile structure, and lets more of the problem fit inside the window
-            where models can still think clearly.
-          </p>
-          <div class="actions">
-            <a class="button primary" href="#install">Install Wren</a>
-            <a class="button" href="#proof">See the compression proof</a>
+  <nav class="nav">
+    <a href="#" class="nav-brand">wren</a>
+    <div class="nav-links">
+      <a href="#demo">demo</a>
+      <a href="#install">install</a>
+      <a href="https://github.com/Divagation/wren">github</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <section class="hero">
+      <div class="bird-scene" id="bird-scene">
+        <div class="bird-float">
+          <div class="bird-tilt">
+            <img src="logo.png" class="bird" alt="Wren pixel art mascot, a small brown bird" width="280" height="210">
           </div>
         </div>
+        <span class="note n1" aria-hidden="true">&#9834;</span>
+        <span class="note n2" aria-hidden="true">&#9835;</span>
+        <span class="note n3" aria-hidden="true">&#9834;</span>
+        <div class="bird-shadow" aria-hidden="true"></div>
+      </div>
 
-        <aside class="hero-side fade" aria-label="Research summary">
-          <div class="hero-meta">
-            <span>Research Note</span>
-            <span>v0.1 · LoRA</span>
-          </div>
-          <div class="hero-stat">
-            <strong>50-80% less text.</strong>
-            <p>Short inputs pass through untouched. Verbose prompts, logs, and grep output get smaller without dropping the parts that break workflows.</p>
-          </div>
-          <div class="signal-cluster">
-            <div class="signal">Preserve<span>Paths and line numbers</span></div>
-            <div class="signal">Preserve<span>Flags and error codes</span></div>
-            <div class="signal">Preserve<span>Negations and branches</span></div>
-            <div class="signal">Preserve<span>Ordered procedures</span></div>
-          </div>
-        </aside>
+      <h1><span style="--i:0">w</span><span style="--i:1">r</span><span style="--i:2">e</span><span style="--i:3">n</span></h1>
+      <p class="tagline">say more with less</p>
+
+      <p class="hero-stat">
+        <span class="num">60-80%</span> compression. zero cloud. local mlx.
+      </p>
+
+      <p class="about-text">
+        A tiny model that strips filler from prompts and tool output,
+        keeping the structure that breaks things when it disappears.
+      </p>
+
+      <div class="actions">
+        <a href="#install" class="btn primary">install</a>
+        <a href="https://github.com/Divagation/wren" class="btn">github</a>
+      </div>
+
+      <div class="scroll-hint" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </section>
+
+    <div class="container">
+
+      <div class="dither dither-check"></div>
+
+      <section class="demo reveal" id="demo">
+        <div class="demo-header">
+          <h2 class="section-label">compression</h2>
+          <div class="demo-counter"><span class="count" id="token-count">312</span> tokens</div>
+        </div>
+
+        <div class="demo-box" id="demo-box">
+          <div class="demo-before"><span class="filler">Before making any changes to the codebase, please </span><span class="keep">read</span><span class="filler"> the</span> <span class="keep">relevant files first</span><span class="filler"> so you understand the existing structure and patterns</span><span class="filler">.</span> <span class="keep">Do not create new files unless</span><span class="filler"> they are</span> <span class="keep">clearly necessary.</span> <span class="keep">Preserve exact</span><span class="filler"> file</span> <span class="keep">paths, line numbers, error</span><span class="filler"> messages</span><span class="keep">, negations, and step order</span><span class="filler">ing when summarizing tool output</span><span class="filler">.</span><span class="filler"> If you are unsure whether a command is destructive, stop and </span><span class="keep">ask before</span> <span class="keep">destructive commands.</span></div>
+          <div class="demo-after">Read relevant files first. Do not create new files unless clearly necessary. Preserve exact paths, line numbers, errors, negations, and step order. Ask before destructive commands.</div>
+          <div class="demo-scanline" aria-hidden="true"></div>
+          <img src="logo.png" class="demo-bird" alt="" aria-hidden="true" width="16" height="12">
+        </div>
+
+        <div class="demo-tag">
+          <span>same meaning &middot; half the tokens</span>
+        </div>
       </section>
 
-      <section class="metrics fade" aria-label="Key outcomes">
-        <div class="metric">
-          <strong>2x</strong>
-          <p>more usable context for the same token budget in verbose coding workflows.</p>
-        </div>
-        <div class="metric">
-          <strong>1.5B</strong>
-          <p>instruction-tuned base model with a narrow compression job and local-first deployment.</p>
-        </div>
-        <div class="metric">
-          <strong>2 modes</strong>
-          <p>separate compression behavior for prompts versus tool output, because those failure modes differ.</p>
-        </div>
-        <div class="metric">
-          <strong>0 cloud</strong>
-          <p>local MLX inference on Apple Silicon, so the fast path stays private and hot in memory.</p>
-        </div>
-      </section>
+      <div class="dither dither-diag"></div>
 
-      <section id="proof">
-        <div class="section-head fade">
-          <h2>Proof before setup.</h2>
-          <p>
-            The first question is not whether the model is clever. It is whether the compressed result still contains
-            the exact details you needed. Wren ships with examples that make that visible immediately.
-          </p>
-        </div>
-
-        <div class="proof-board fade">
-          <div class="proof-switch" role="tablist" aria-label="Compression examples">
-            <button type="button" class="proof-tab" role="tab" aria-selected="true" aria-controls="panel-prompt" data-panel="panel-prompt">System Prompt</button>
-            <button type="button" class="proof-tab" role="tab" aria-selected="false" aria-controls="panel-log" data-panel="panel-log">Build Log</button>
+      <section class="preserves reveal">
+        <h2 class="section-label">what stays</h2>
+        <div class="preserve-grid">
+          <div class="pv" style="--i:0">
+            <span class="pv-label">negations</span>
+            <span class="pv-example">never, unless, do not</span>
           </div>
-
-          <div id="panel-prompt" class="proof-panel active" role="tabpanel">
-            <div class="sample">
-              <div class="sample-label">Before</div>
-              <pre><code>Before making any changes to the codebase, please read the relevant files first so you understand the existing structure and patterns. Do not create new files unless they are clearly necessary. Preserve exact file paths, line numbers, error messages, negations, and step ordering when summarizing tool output. If you are unsure whether a command is destructive, stop and ask before proceeding.</code></pre>
-            </div>
-            <div class="sample after">
-              <div class="sample-label">After</div>
-              <pre><code>Read relevant files first. Do not create new files unless clearly necessary. Preserve exact paths, line numbers, errors, negations, and step order. Ask before destructive commands.</code></pre>
-            </div>
+          <div class="pv" style="--i:1">
+            <span class="pv-label">file paths</span>
+            <span class="pv-example">src/server.py, .env</span>
           </div>
-
-          <div id="panel-log" class="proof-panel" role="tabpanel" aria-hidden="true">
-            <div class="sample">
-              <div class="sample-label">Before</div>
-              <pre><code>src/server.py:184: ValueError: invalid status code 299
-tests/test_api.py:88: AssertionError: expected 201, got 500
-Command failed: pytest tests/test_api.py -k create_user --maxfail=1
-Hint: check config.json and .env before retrying.
-Next steps:
-1. restore POST /users success path
-2. keep --maxfail=1 for fast iteration
-3. re-run pytest tests/test_api.py -k create_user</code></pre>
-            </div>
-            <div class="sample after">
-              <div class="sample-label">After</div>
-              <pre><code>src/server.py:184 ValueError invalid status code 299. tests/test_api.py:88 expected 201, got 500. pytest tests/test_api.py -k create_user --maxfail=1 failed. Check config.json and .env. Next: 1) restore POST /users success path. 2) keep --maxfail=1. 3) re-run pytest tests/test_api.py -k create_user.</code></pre>
-            </div>
+          <div class="pv" style="--i:2">
+            <span class="pv-label">line numbers</span>
+            <span class="pv-example">:184, :88</span>
           </div>
-
-          <div class="proof-meta">
-            <div>
-              <span>Compression</span>
-              <strong>54%</strong>
-            </div>
-            <div>
-              <span>Estimated token savings</span>
-              <strong>53</strong>
-            </div>
-            <div>
-              <span>Preserved</span>
-              <strong>paths · negations · steps</strong>
-            </div>
+          <div class="pv" style="--i:3">
+            <span class="pv-label">error codes</span>
+            <span class="pv-example">299, 500, ENOENT</span>
+          </div>
+          <div class="pv" style="--i:4">
+            <span class="pv-label">step ordering</span>
+            <span class="pv-example">1) restore 2) retry</span>
+          </div>
+          <div class="pv" style="--i:5">
+            <span class="pv-label">control flow</span>
+            <span class="pv-example">if, unless, when</span>
           </div>
         </div>
       </section>
 
-      <section id="preserve">
-        <div class="section-head fade">
-          <h2>Compression is only useful when it is precise.</h2>
-          <p>
-            Wren is not trying to produce pretty summaries. It is trying to remove noise while keeping the tokens that
-            silently change outcomes when they disappear.
-          </p>
+      <div class="dither dither-dot"></div>
+
+      <section class="install reveal" id="install">
+        <h2 class="section-label">install</h2>
+        <div class="install-step" style="--i:0">
+          <div class="install-label">pip</div>
+          <div class="install-cmd" data-cmd="pipx install git+https://github.com/Divagation/wren.git">pipx install git+https://github.com/Divagation/wren.git<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
         </div>
-
-        <div class="grid-two">
-          <div class="preserve-list fade">
-            <div class="preserve-item">
-              <strong>Negations</strong>
-              <p><code>Never</code>, <code>unless</code>, and <code>do not</code> survive intact so the compressed result does not invert intent.</p>
-            </div>
-            <div class="preserve-item">
-              <strong>Values</strong>
-              <p>Numbers, status codes, flags, file paths, and line references are treated as structural material, not optional decoration.</p>
-            </div>
-            <div class="preserve-item">
-              <strong>Branches</strong>
-              <p>If a source block contains conditions, exceptions, or ordered steps, the compressed form keeps the control flow legible.</p>
-            </div>
-            <div class="preserve-item">
-              <strong>Tool Output</strong>
-              <p>Read, grep, and build results behave differently from prompts, so Wren uses a separate output mode tuned for actionable traces.</p>
-            </div>
-          </div>
-
-          <div class="install-panel fade" id="install">
-            <div class="install-block">
-              <h3>Install</h3>
-              <p>The shortest path is a package install plus one diagnostic command.</p>
-              <div class="command"><code>pipx install git+https://github.com/Divagation/wren.git
-wren doctor
-wren demo</code></div>
-            </div>
-
-            <div class="install-block">
-              <h3>Claude Code MCP</h3>
-              <p>Wren stays warm in memory as an MCP server, so compression becomes part of the workflow instead of a separate waiting step.</p>
-              <div class="command"><code>claude mcp add wren wren-mcp -s user</code></div>
-            </div>
-
-            <div class="install-block">
-              <h3>Research Surface</h3>
-              <p>Fine-tuned LoRA adapters, MLX-native inference, and separate prompt/output compression behavior. Small model, narrow task, pragmatic outcome.</p>
-            </div>
-          </div>
+        <div class="install-step" style="--i:1">
+          <div class="install-label">mcp</div>
+          <div class="install-cmd" data-cmd="claude mcp add wren wren-mcp -s user">claude mcp add wren wren-mcp -s user<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
+        </div>
+        <p class="install-note">Runs as an MCP server inside Claude Code. Compression stays warm in memory.</p>
+        <div class="install-step" style="--i:2">
+          <div class="install-label">verify</div>
+          <div class="install-cmd" data-cmd="wren doctor && wren demo">wren doctor &amp;&amp; wren demo<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
         </div>
       </section>
 
-      <section>
-        <div class="section-head fade">
-          <h2>Built like a narrow research tool, deployed like a utility.</h2>
-          <p>
-            The point is not to become another chat model. The point is to sit beside existing agents and make them
-            less wasteful in the moments where verbosity crowds out useful context.
-          </p>
-        </div>
+      <div class="dither dither-check"></div>
 
-        <div class="research">
-          <article class="research-card fade">
-            <span>Training</span>
-            <strong>Prompt pairs and tool traces.</strong>
-            <p>Wren is trained on compression pairs from real prompt blocks plus mined tool output. The examples optimize for constraint preservation, not style transfer.</p>
-          </article>
-          <article class="research-card fade">
-            <span>Inference</span>
-            <strong>Local MLX on Apple Silicon.</strong>
-            <p>The model loads once, stays hot, and compresses where the user already works. No hosted API, no extra privacy layer, no server bill.</p>
-          </article>
-          <article class="research-card fade">
-            <span>Behavior</span>
-            <strong>Small enough to be specific.</strong>
-            <p>The job is tightly defined: remove filler, keep structure, and refuse to win on compression ratio by throwing away the detail that actually matters.</p>
-          </article>
-        </div>
-      </section>
-    </main>
+      <footer>
+        <span>wren</span>
+        <span>smallest bird, loudest song</span>
+        <img src="logo.png" class="footer-bird" alt="" aria-hidden="true" width="16" height="12">
+      </footer>
 
-    <footer class="fade">
-      <span>Wren · say more with less</span>
-      <span>Made for Claude Code and local agent workflows</span>
-    </footer>
-  </div>
+    </div>
+  </main>
 
   <script>
-    const tabs = document.querySelectorAll(".proof-tab");
-    const panels = document.querySelectorAll(".proof-panel");
-    const meta = document.querySelector(".proof-meta");
-    const metaContent = {
-      "panel-prompt": {
-        compression: "54%",
-        tokens: "53",
-        preserved: "paths · negations · steps"
-      },
-      "panel-log": {
-        compression: "19%",
-        tokens: "17",
-        preserved: "paths · flags · numbers"
+    /* ── scroll observers ── */
+    const revealObs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.reveal, .dither, .preserves, .install').forEach(el => revealObs.observe(el));
+
+    /* ── bird click: chirp burst ── */
+    const birdScene = document.getElementById('bird-scene');
+    const burstSymbols = ['\u266A', '\u266B', '\u266A', '\u2022', '\u266A', '\u266B'];
+
+    birdScene.addEventListener('click', () => {
+      const count = 5 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < count; i++) {
+        const n = document.createElement('span');
+        n.className = 'burst-note';
+        n.textContent = burstSymbols[Math.floor(Math.random() * burstSymbols.length)];
+        n.style.fontSize = (12 + Math.random() * 14) + 'px';
+        n.style.setProperty('--bx', ((Math.random() - 0.5) * 120) + 'px');
+        n.style.setProperty('--by', (-(25 + Math.random() * 70)) + 'px');
+        n.style.setProperty('--br', ((Math.random() - 0.5) * 50) + 'deg');
+        n.style.animationDelay = (Math.random() * 80) + 'ms';
+        birdScene.appendChild(n);
+        setTimeout(() => n.remove(), 750);
       }
-    };
-
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const target = tab.dataset.panel;
-
-        tabs.forEach((item) => {
-          item.setAttribute("aria-selected", String(item === tab));
-        });
-
-        panels.forEach((panel) => {
-          const active = panel.id === target;
-          panel.classList.toggle("active", active);
-          panel.setAttribute("aria-hidden", String(!active));
-        });
-
-        const content = metaContent[target];
-        meta.innerHTML = `
-          <div>
-            <span>Compression</span>
-            <strong>${content.compression}</strong>
-          </div>
-          <div>
-            <span>Estimated token savings</span>
-            <strong>${content.tokens}</strong>
-          </div>
-          <div>
-            <span>Preserved</span>
-            <strong>${content.preserved}</strong>
-          </div>
-        `;
-      });
     });
+
+    /* ── compression demo ── */
+    const box = document.getElementById('demo-box');
+    const counter = document.getElementById('token-count');
+    let demoFired = false;
+
+    const demoObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !demoFired) {
+          demoFired = true;
+          runDemo();
+        }
+      });
+    }, { threshold: 0.4 });
+    demoObs.observe(box);
+
+    function spawnParticles(yPct) {
+      const count = 6 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = (yPct * 100) + '%';
+        p.style.setProperty('--px', ((Math.random() - 0.5) * 40) + 'px');
+        p.style.setProperty('--py', (-(15 + Math.random() * 35)) + 'px');
+        p.style.animationDelay = (Math.random() * 120) + 'ms';
+        box.appendChild(p);
+        setTimeout(() => p.remove(), 900);
+      }
+    }
+
+    function runDemo() {
+      box.style.setProperty('--box-h', box.offsetHeight + 'px');
+      box.style.setProperty('--box-w', box.offsetWidth + 'px');
+      box.classList.add('compressing');
+
+      const sweepDuration = 1800;
+      [0.15, 0.35, 0.55, 0.78].forEach(pct => {
+        setTimeout(() => spawnParticles(pct), pct * sweepDuration);
+      });
+
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min((now - start) / sweepDuration, 1);
+        const eased = 1 - Math.pow(1 - t, 4);
+        counter.textContent = Math.round(312 - (312 - 144) * eased);
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+
+      setTimeout(() => {
+        box.classList.remove('compressing');
+        box.classList.add('compressed');
+        counter.classList.add('done');
+      }, 2100);
+    }
+
+    /* ── demo replay ── */
+    box.addEventListener('click', () => {
+      if (!box.classList.contains('compressed')) return;
+      box.classList.remove('compressed');
+      box.querySelectorAll('.particle').forEach(p => p.remove());
+      counter.textContent = '312';
+      counter.classList.remove('done');
+      void box.offsetHeight;
+      requestAnimationFrame(() => runDemo());
+    });
+
+    /* ── click-to-copy with clipboard fallback ── */
+    function copyText(text, el) {
+      function showFeedback() {
+        el.classList.add('copied');
+        setTimeout(() => el.classList.remove('copied'), 1200);
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showFeedback).catch(() => {
+          fallbackCopy(text);
+          showFeedback();
+        });
+      } else {
+        fallbackCopy(text);
+        showFeedback();
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+
+    document.querySelectorAll('.install-cmd').forEach(el => {
+      el.addEventListener('click', () => copyText(el.getAttribute('data-cmd'), el));
+    });
+
+    /* ── console easter egg ── */
+    console.log(
+      '%c\n  \u266A wren\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  say more with less\n\n  this console was not compressed.\n  github.com/Divagation/wren\n',
+      'font-family: monospace; color: #B8845C; font-size: 12px; line-height: 1.8;'
+    );
   </script>
 </body>
 </html>
