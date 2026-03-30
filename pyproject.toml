@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wren-ai"
+version = "0.1.0"
+description = "Prompt and tool-output compression for Claude Code and local agent workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "huggingface-hub",
+  "mcp",
+  "mlx-lm",
+]
+
+[project.scripts]
+wren = "wren:main"
+wren-mcp = "mcp_server:main"
+
+[tool.setuptools]
+py-modules = ["mcp_server", "wren"]

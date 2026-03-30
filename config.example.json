@@ -1,5 +1,5 @@
 {
-  "base_model": "your-base-model-here",
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "adapter_path": "adapters",
   "max_tokens": 2048,
   "min_compress_chars": 300,

@@ -1,5 +1,10 @@
 #!/bin/bash
 # Wren - prompt compression CLI
-WREN_DIR="/Users/brandon/wren"
-source "$WREN_DIR/.venv/bin/activate" 2>/dev/null
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WREN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [ -f "$WREN_DIR/.venv/bin/activate" ]; then
+  source "$WREN_DIR/.venv/bin/activate"
+fi
+
 exec python3 "$WREN_DIR/wren.py" "$@"
