@@ -27,7 +27,7 @@ PROMPT_OUTPUT = (
     "relationships. Output only the compressed text."
 )
 
-MIN_CHARS = 300
+MIN_CHARS = 100
 MIN_SAVINGS = 0.20
 TOKEN_ESTIMATE_CHARS = 4
 DEMO_TEXT = [
