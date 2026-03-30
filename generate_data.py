@@ -150,12 +150,33 @@ def mine_conversations():
     print(f"Total candidates: {total}")
 
 
+COMPRESS_INSTRUCTION = (
+    "TASK: Compress the following text to its shortest form preserving ALL meaning "
+    "and instruction-following behavior. Preserve numbers, flags, paths, negations, "
+    "conditionals, step ordering. Output ONLY the compressed text. No explanation, "
+    "no formatting, no markdown.\n\n"
+    "TEXT:\n"
+)
+
+
+def _compress_via_claude(text: str) -> str:
+    """Compress text using claude --print (uses subscription, not API credits)."""
+    import subprocess
+
+    result = subprocess.run(
+        ["claude", "--print", "--tools", "", "--model", "haiku"],
+        input=COMPRESS_INSTRUCTION + text,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"exit {result.returncode}")
+    return result.stdout.strip()
+
+
 def compress_candidates():
-    """Use Claude API to generate compressions for candidates."""
-    import anthropic
-
-    client = anthropic.Anthropic()
-
+    """Generate compressions for candidates via claude --print."""
     # Load candidates that haven't been compressed yet
     compressed_hashes = set()
     if COMPRESSED_FILE.exists():
@@ -194,13 +215,7 @@ def compress_candidates():
         with open(COMPRESSED_FILE, "a") as out:
             for c in batch:
                 try:
-                    response = client.messages.create(
-                        model="claude-haiku-4-5-20251001",
-                        max_tokens=1024,
-                        system=SYSTEM_PROMPT,
-                        messages=[{"role": "user", "content": c["text"]}],
-                    )
-                    compressed = response.content[0].text.strip()
+                    compressed = _compress_via_claude(c["text"])
 
                     ratio = len(compressed) / len(c["text"]) if len(c["text"]) > 0 else 1.0
 
@@ -216,7 +231,7 @@ def compress_candidates():
                     total_done += 1
 
                     status = "OK" if ratio <= MAX_RATIO else "WEAK"
-                    print(f"  [{status}] {len(c['text'])}→{len(compressed)} ({ratio:.0%})")
+                    print(f"  [{status}] {len(c['text'])}->{len(compressed)} ({ratio:.0%})")
 
                 except Exception as e:
                     print(f"  ERROR: {e}", file=sys.stderr)

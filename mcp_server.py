@@ -5,9 +5,21 @@ import os
 import sys
 import subprocess
 import shlex
+import shutil
 
 # Ensure wren.py is importable
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _find_rg() -> str:
+    """Find the ripgrep binary, checking common install locations."""
+    found = shutil.which("rg")
+    if found:
+        return found
+    for candidate in ["/opt/homebrew/bin/rg", "/usr/local/bin/rg"]:
+        if os.path.isfile(candidate):
+            return candidate
+    return "rg"  # fall back and let subprocess raise
 
 from mcp.server.fastmcp import FastMCP
 from wren import compress_with_stats, get_stats, is_loaded
@@ -83,7 +95,19 @@ def _validate_exec_command(command: str) -> tuple[list[str] | None, str | None]:
         )
 
     if exe == "git":
-        if len(argv) < 2 or argv[1] not in SAFE_GIT_SUBCOMMANDS:
+        # Skip flags (e.g. -C /path) to find the actual subcommand
+        git_sub = None
+        i = 1
+        while i < len(argv):
+            arg = argv[i]
+            if not arg.startswith("-"):
+                git_sub = arg
+                break
+            # Flags that take a value: skip the next arg too
+            if arg in ("-C", "-c", "--git-dir", "--work-tree"):
+                i += 1
+            i += 1
+        if git_sub not in SAFE_GIT_SUBCOMMANDS:
             return None, "Error: compressed_exec only allows read-only git subcommands."
 
     if exe in {"npm", "pnpm", "yarn", "bun"}:
@@ -145,7 +169,7 @@ def compressed_read(path: str, offset: int = 0, limit: int = 2000) -> str:
     selected = lines[offset : offset + limit]
     content = "".join(selected)
 
-    result, stats = compress_with_stats(content)
+    result, stats = compress_with_stats(content, mode="output")
 
     meta = f"[{path} | {total} lines | {offset + 1}-{min(offset + limit, total)}]"
     if stats.get("compressed"):
@@ -165,7 +189,7 @@ def compressed_grep(
     Use for broad exploration where you need the gist, not exact line numbers."""
     path = os.path.expanduser(path)
 
-    cmd = ["rg", "--no-heading", "-n", "-m", str(max_results), pattern, path]
+    cmd = [_find_rg(), "--no-heading", "-n", "-m", str(max_results), pattern, path]
     if glob_filter:
         cmd.extend(["--glob", glob_filter])
 
@@ -221,10 +245,11 @@ def compressed_exec(command: str) -> str:
 
 
 @mcp.tool()
-def compress_text(text: str) -> str:
+def compress_text(text: str, mode: str = "input") -> str:
     """Compress arbitrary text through Wren. General-purpose -- use to shrink
-    any large text blob before working with it."""
-    result, stats = compress_with_stats(text)
+    any large text blob before working with it. mode='input' for prose/instructions,
+    mode='output' for code/tool results."""
+    result, stats = compress_with_stats(text, mode=mode)
     if stats.get("compressed"):
         return f"[wren: {stats['savings']} saved | {stats['original']}->{stats['result']} chars]\n{result}"
     return result

@@ -9,6 +9,8 @@ adapters/adapters_iter500.safetensors
 data/batch_*.json
 data/compressed_*.jsonl
 data/candidates.jsonl
+data/tool_output_candidates.jsonl
+data/tool_output_compressed.jsonl
 data/synth_*.jsonl
 data/fix_*.jsonl
 data/DATASET_INFO.txt
@@ -18,3 +20,5 @@ data/SYNTH_*.md
 data/synth_ml_README.md
 data/compressed.jsonl
 data/compression_report_*.txt
+data/eval_candidates.jsonl
+data/eval_real.py

@@ -385,6 +385,87 @@ TESTS = [
         values=["72"],
         required=["feat:", "fix:", "BREAKING CHANGE"],
     ),
+
+    # === SHORT PASSTHROUGH ===
+    TestCase(
+        category="short",
+        input="Fix the bug.",
+        required=["fix", "bug"],
+        target_ratio=(0.90, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="What does this function do?",
+        required=["what", "function", "do"],
+        target_ratio=(0.90, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Refactor this to use async/await.",
+        required=["refactor", "async/await"],
+        target_ratio=(0.90, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="NEVER use dark themes. Always light. No exceptions.",
+        negations=["never"],
+        required=["never", "light"],
+        target_ratio=(0.80, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Deploy to staging but NOT production.",
+        negations=["not"],
+        required=["staging", "not", "production"],
+        target_ratio=(0.85, 1.10),
+    ),
+    TestCase(
+        category="short",
+        input="Check if port 8080 is already in use.",
+        values=["8080"],
+        required=["port", "8080"],
+        target_ratio=(0.80, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Run the tests and check for failures.",
+        required=["tests", "failures"],
+        target_ratio=(0.80, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Show me the error log.",
+        required=["error", "log"],
+        target_ratio=(0.90, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Set the timeout to 30 seconds.",
+        values=["30"],
+        required=["timeout", "30"],
+        target_ratio=(0.85, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Read src/main.rs and explain it.",
+        values=["src/main.rs"],
+        required=["src/main.rs"],
+        target_ratio=(0.80, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Add a retry with max 3 attempts and 5 second delay.",
+        values=["3", "5"],
+        required=["retry", "3", "5"],
+        target_ratio=(0.80, 1.05),
+    ),
+    TestCase(
+        category="short",
+        input="Do NOT merge this PR until CI passes.",
+        negations=["not"],
+        required=["not", "merge", "CI"],
+        target_ratio=(0.85, 1.10),
+    ),
 ]
 
 
