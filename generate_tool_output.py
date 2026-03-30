@@ -308,9 +308,9 @@ def compress_candidates():
         print("Nothing to compress.")
         return
 
-    workers = 4
+    workers = 1
     total_done = 0
-    batch_size = 50
+    batch_size = 20
 
     for i in range(0, len(candidates), batch_size):
         batch = candidates[i : i + batch_size]

@@ -5,7 +5,8 @@ __pycache__/
 logs/
 config.json
 adapters/0000*_adapters.safetensors
-adapters/adapters_iter500.safetensors
+adapters/adapters_iter*.safetensors
+adapters/adapters_pre_retrain.safetensors
 data/batch_*.json
 data/compressed_*.jsonl
 data/candidates.jsonl
