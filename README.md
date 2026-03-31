@@ -6,7 +6,7 @@
 
 **say more with less.**
 
-wren compresses prompts and tool output for Claude Code and local agent workflows. it makes verbose context smaller without dropping the details that change behavior: paths, line numbers, flags, negations, errors, and step ordering.
+wren compresses prompts and tool output for coding agents. it plugs into Claude Code, Codex, and other MCP-capable local workflows. it makes verbose context smaller without dropping the details that change behavior: paths, line numbers, flags, negations, errors, and step ordering.
 
 it runs locally on Apple Silicon via [MLX](https://github.com/ml-explore/mlx). typical verbose text shrinks by 50-80%. short text passes through unchanged. the fluff disappears; the fragile details stay intact.
 
@@ -92,7 +92,7 @@ wren doctor
 
 ## MCP server
 
-wren also runs as an MCP server that compresses tool output for Claude Code. the model loads once and stays hot in memory, so compression becomes part of the workflow instead of a separate wait.
+wren also runs as a local stdio MCP server. if your agent can launch an MCP server process, wren works with it. Claude Code and Codex are the simplest examples, and other MCP-capable agents can use the same entrypoint. the model loads once and stays hot in memory, so compression becomes part of the workflow instead of a separate wait.
 
 **tools exposed:**
 
@@ -107,16 +107,30 @@ wren also runs as an MCP server that compresses tool output for Claude Code. the
 **setup:**
 
 ```bash
-# packaged install
-claude mcp add wren wren-mcp -s user
+# Claude Code
+claude mcp add wren -s user -- wren-mcp
 
-# source checkout
-claude mcp add wren /path/to/wren/.venv/bin/python -- /path/to/wren/mcp_server.py -s user
+# Codex
+codex mcp add wren -- wren-mcp
 
-# optional auto-approve for the non-exec tools only
-# do not auto-approve compressed_exec
-# add: "mcp__wren__compressed_read", "mcp__wren__compressed_grep",
-#      "mcp__wren__compress_text", "mcp__wren__wren_status"
+# source checkout (same server, any stdio MCP client)
+/path/to/wren/.venv/bin/python /path/to/wren/mcp_server.py
+```
+
+for other MCP clients, point them at the same stdio command:
+
+```bash
+wren-mcp
+# or
+/path/to/wren/.venv/bin/python /path/to/wren/mcp_server.py
+```
+
+optional auto-approve for the non-exec tools only:
+
+```text
+do not auto-approve compressed_exec
+add: "mcp__wren__compressed_read", "mcp__wren__compressed_grep",
+     "mcp__wren__compress_text", "mcp__wren__wren_status"
 ```
 
 `compressed_exec` does not open a shell. it only allows a constrained set of inspection/build/test/log commands, and rejects arbitrary or destructive invocations.

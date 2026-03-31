@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wren MCP server -- compressed tool output for Claude Code."""
+"""Wren MCP server -- compressed tool output for MCP-capable coding agents."""
 
 import os
 import sys

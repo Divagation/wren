@@ -9,7 +9,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wren</title>
-  <meta name="description" content="Prompt compression for Claude Code. Local MLX inference on Apple Silicon. Say more with less.">
+  <meta name="description" content="Prompt compression for Claude Code, Codex, and other MCP agents. Local MLX inference on Apple Silicon. Say more with less.">
   <meta property="og:title" content="Wren">
   <meta property="og:description" content="Tiny compression model that makes agent context go further. 60-80% savings, local inference, zero cloud.">
   <meta property="og:image" content="logo.png">
@@ -928,11 +928,15 @@
           <div class="install-cmd" data-cmd="pipx install git+https://github.com/Divagation/wren.git">pipx install git+https://github.com/Divagation/wren.git<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
         </div>
         <div class="install-step" style="--i:1">
-          <div class="install-label">mcp</div>
-          <div class="install-cmd" data-cmd="claude mcp add wren wren-mcp -s user">claude mcp add wren wren-mcp -s user<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
+          <div class="install-label">claude</div>
+          <div class="install-cmd" data-cmd="claude mcp add wren -s user -- wren-mcp">claude mcp add wren -s user -- wren-mcp<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
         </div>
-        <p class="install-note">Runs as an MCP server inside Claude Code. Compression stays warm in memory.</p>
         <div class="install-step" style="--i:2">
+          <div class="install-label">codex</div>
+          <div class="install-cmd" data-cmd="codex mcp add wren -- wren-mcp">codex mcp add wren -- wren-mcp<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
+        </div>
+        <p class="install-note">Works with Claude Code, Codex, and other stdio MCP clients. Compression stays warm in memory.</p>
+        <div class="install-step" style="--i:3">
           <div class="install-label">verify</div>
           <div class="install-cmd" data-cmd="wren doctor && wren demo">wren doctor &amp;&amp; wren demo<svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4V4h11v1"/></svg></div>
         </div>
