@@ -48,7 +48,7 @@ requires Python 3.10+ and Apple Silicon.
 fastest path:
 
 ```bash
-pipx install git+https://github.com/Divagation/wren.git
+pipx install git+https://github.com/baahaus/wren.git
 wren doctor
 wren demo
 ```
@@ -56,7 +56,7 @@ wren demo
 from source:
 
 ```bash
-git clone https://github.com/Divagation/wren.git
+git clone https://github.com/baahaus/wren.git
 cd wren
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
@@ -236,5 +236,5 @@ smallest bird, loudest song.
 <br>
 
 <p align="center">
-  <sub>made by <a href="https://github.com/Divagation">divagation</a></sub>
+  <sub>made by <a href="https://github.com/baahaus">baahaus</a></sub>
 </p>
